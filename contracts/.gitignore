@@ -1,4 +1,7 @@
 node_modules
+# Keep deployments/*.json checked in — they are the frontend's source of truth.
+!deployments/
+!deployments/*.json
 .env
 artifacts
 cache
