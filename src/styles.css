@@ -132,6 +132,44 @@
   --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
+/* -------------------------------------------------------------------------
+ * Ritual ceremonial palette — applied to BOTH light & dark by default.
+ * Deep obsidian + ember + ritual gold.
+ * ------------------------------------------------------------------------- */
+:root,
+.dark {
+  --background:           oklch(0.14 0.012 35);
+  --foreground:           oklch(0.96 0.02 80);
+  --card:                 oklch(0.18 0.018 35);
+  --card-foreground:      oklch(0.96 0.02 80);
+  --popover:              oklch(0.18 0.018 35);
+  --popover-foreground:   oklch(0.96 0.02 80);
+  --primary:              oklch(0.72 0.19 47);          /* ember orange */
+  --primary-foreground:   oklch(0.14 0.012 35);
+  --secondary:            oklch(0.24 0.02 40);
+  --secondary-foreground: oklch(0.96 0.02 80);
+  --muted:                oklch(0.22 0.015 40);
+  --muted-foreground:     oklch(0.72 0.03 70);
+  --accent:               oklch(0.78 0.14 85);          /* ritual gold */
+  --accent-foreground:    oklch(0.14 0.012 35);
+  --destructive:          oklch(0.62 0.24 27);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border:               oklch(0.30 0.025 50 / 60%);
+  --input:                oklch(0.24 0.02 40);
+  --ring:                 oklch(0.72 0.19 47);
+
+  --ritual-ember:         oklch(0.72 0.19 47);
+  --ritual-gold:          oklch(0.78 0.14 85);
+  --ritual-obsidian:      oklch(0.10 0.01 35);
+  --gradient-ritual:      linear-gradient(135deg, var(--ritual-ember), var(--ritual-gold));
+  --shadow-ritual:        0 20px 60px -20px oklch(0.72 0.19 47 / 0.45);
+}
+
+@theme inline {
+  --color-ritual-ember:   var(--ritual-ember);
+  --color-ritual-gold:    var(--ritual-gold);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

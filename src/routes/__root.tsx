@@ -9,6 +9,8 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
+import { Web3Provider } from "@/components/Web3Provider";
+import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
   return (
@@ -72,14 +74,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "The Great Dunce's of Ritual — 666 free mints" },
+      {
+        name: "description",
+        content:
+          "666 free mints to unlock Ritual Mainnet. Mint your Dunce with your Twitter PFP. Designed by crankywakker.",
+      },
+      { property: "og:title", content: "The Great Dunce's of Ritual" },
+      {
+        property: "og:description",
+        content: "666 free mints to unlock Ritual Mainnet. Designed by crankywakker.",
+      },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:creator", content: "@crankywakker" },
     ],
     links: [
       {
@@ -113,7 +121,10 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <Web3Provider>
+        <Outlet />
+        <Toaster richColors position="top-center" />
+      </Web3Provider>
     </QueryClientProvider>
   );
 }
