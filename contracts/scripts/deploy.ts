@@ -1,4 +1,6 @@
-import { ethers, network, run } from "hardhat";
+import { ethers, network, run, artifacts } from "hardhat";
+import { writeFileSync, mkdirSync } from "fs";
+import { join, dirname } from "path";
 
 async function main() {
   const [deployer] = await ethers.getSigners();
@@ -12,8 +14,46 @@ async function main() {
   await c.waitForDeployment();
 
   const addr = await c.getAddress();
+  const tx   = c.deploymentTransaction();
   console.log(`✓ Deployed to: ${addr}`);
   console.log(`  Explorer:    https://explorer.ritualfoundation.org/address/${addr}`);
+
+  // -------------------------------------------------------------------------
+  // Post-deploy: write { address, abi, chainId, ... } for frontend consumption
+  // -------------------------------------------------------------------------
+  const artifact = await artifacts.readArtifact("GreatDuncesOfRitual");
+  const chainId  = Number(network.config.chainId ?? (await ethers.provider.getNetwork()).chainId);
+
+  const deployment = {
+    name:            "GreatDuncesOfRitual",
+    address:         addr,
+    chainId,
+    network:         network.name,
+    deployer:        deployer.address,
+    deploymentTx:    tx?.hash ?? null,
+    blockNumber:     tx?.blockNumber ?? null,
+    explorer:        `https://explorer.ritualfoundation.org/address/${addr}`,
+    deployedAt:      new Date().toISOString(),
+    abi:             artifact.abi,
+    bytecodeHash:    ethers.keccak256(artifact.bytecode),
+  };
+
+  // 1) Per-network snapshot (kept in git, one file per deploy target)
+  const perNetworkPath = join(__dirname, "..", "deployments", `${network.name}.json`);
+  mkdirSync(dirname(perNetworkPath), { recursive: true });
+  writeFileSync(perNetworkPath, JSON.stringify(deployment, null, 2));
+  console.log(`✓ Wrote ${perNetworkPath}`);
+
+  // 2) Frontend-ready copy: drop into src/contracts/ so the React app can
+  //    `import deployment from "@/contracts/GreatDuncesOfRitual.json"`.
+  const frontendPath = join(__dirname, "..", "..", "src", "contracts", "GreatDuncesOfRitual.json");
+  try {
+    mkdirSync(dirname(frontendPath), { recursive: true });
+    writeFileSync(frontendPath, JSON.stringify(deployment, null, 2));
+    console.log(`✓ Wrote ${frontendPath}`);
+  } catch (e: any) {
+    console.warn(`! Skipped frontend copy (${e?.message ?? e})`);
+  }
 
   if (network.name === "ritual") {
     console.log("\n→ Waiting 30s before verification…");
