@@ -215,40 +215,54 @@ function MintCard() {
   );
   const handleValid = /^[A-Za-z0-9_]{1,15}$/.test(cleanHandle);
 
-  // ── Live PFP preview ───────────────────────────────────────────────
-  const [pfpUrl, setPfpUrl] = useState<string | null>(null);
-  const [pfpLoading, setPfpLoading] = useState(false);
-  const [pfpFallback, setPfpFallback] = useState(false);
+  // ── Uploaded PFP ───────────────────────────────────────────────────
+  const [pfpFile, setPfpFile] = useState<File | null>(null);
+  const [pfpPreview, setPfpPreview] = useState<string | null>(null);
+  const [pfpError, setPfpError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!handleValid) {
-      setPfpUrl(null);
-      setPfpFallback(false);
+    if (!pfpFile) {
+      setPfpPreview(null);
       return;
     }
-    let cancelled = false;
-    setPfpLoading(true);
-    const t = setTimeout(async () => {
-      try {
-        const res = await getTwitterPfp({ data: { handle: cleanHandle } });
-        if (cancelled) return;
-        setPfpUrl(res.imageUrl);
-        setPfpFallback(res.fallback);
-      } catch {
-        if (!cancelled) {
-          setPfpUrl(null);
-          setPfpFallback(true);
-        }
-      } finally {
-        if (!cancelled) setPfpLoading(false);
-      }
-    }, 450);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-      setPfpLoading(false);
-    };
-  }, [cleanHandle, handleValid]);
+    const url = URL.createObjectURL(pfpFile);
+    setPfpPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pfpFile]);
+
+  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    setPfpError(null);
+    const file = e.target.files?.[0];
+    if (!file) {
+      setPfpFile(null);
+      return;
+    }
+    if (!["image/jpeg", "image/png"].includes(file.type)) {
+      setPfpError("Only JPEG or PNG images are allowed.");
+      setPfpFile(null);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setPfpError("Image must be 5MB or smaller.");
+      setPfpFile(null);
+      return;
+    }
+    setPfpFile(file);
+  }
+
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // strip "data:<mime>;base64," prefix
+        const idx = result.indexOf(",");
+        resolve(idx >= 0 ? result.slice(idx + 1) : result);
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
 
   const canMint =
     IS_CONTRACT_CONFIGURED &&
@@ -257,18 +271,26 @@ function MintCard() {
     !soldOut &&
     !alreadyMinted &&
     handleValid &&
+    !!pfpFile &&
     !pinning &&
     !writing &&
     !confirming;
 
   async function handleMint() {
-    if (!address) return;
+    if (!address || !pfpFile) return;
     try {
       setPinning(true);
       const nextId = Number(minted) + 1;
       toast.info("Pinning your Dunce to IPFS…");
+      const imageBase64 = await fileToBase64(pfpFile);
       const { tokenURI, imageGatewayUrl } = await pinMintMetadata({
-        data: { handle: cleanHandle, nextId, minter: address },
+        data: {
+          handle: cleanHandle,
+          nextId,
+          minter: address,
+          imageBase64,
+          imageMime: pfpFile.type as "image/jpeg" | "image/png",
+        },
       });
       setMintedImageUrl(imageGatewayUrl);
       setPinning(false);
