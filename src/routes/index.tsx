@@ -216,6 +216,41 @@ function MintCard() {
   );
   const handleValid = /^[A-Za-z0-9_]{1,15}$/.test(cleanHandle);
 
+  // ── Live PFP preview ───────────────────────────────────────────────
+  const [pfpUrl, setPfpUrl] = useState<string | null>(null);
+  const [pfpLoading, setPfpLoading] = useState(false);
+  const [pfpFallback, setPfpFallback] = useState(false);
+
+  useEffect(() => {
+    if (!handleValid) {
+      setPfpUrl(null);
+      setPfpFallback(false);
+      return;
+    }
+    let cancelled = false;
+    setPfpLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await getTwitterPfp({ data: { handle: cleanHandle } });
+        if (cancelled) return;
+        setPfpUrl(res.imageUrl);
+        setPfpFallback(res.fallback);
+      } catch {
+        if (!cancelled) {
+          setPfpUrl(null);
+          setPfpFallback(true);
+        }
+      } finally {
+        if (!cancelled) setPfpLoading(false);
+      }
+    }, 450);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+      setPfpLoading(false);
+    };
+  }, [cleanHandle, handleValid]);
+
   const canMint =
     IS_CONTRACT_CONFIGURED &&
     isConnected &&
