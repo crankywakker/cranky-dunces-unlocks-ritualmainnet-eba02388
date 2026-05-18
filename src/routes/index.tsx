@@ -24,8 +24,7 @@ import {
 } from "@/lib/contract";
 import { ritualChain } from "@/lib/wagmi";
 import { pinMintMetadata } from "@/lib/pin-metadata.functions";
-import { getTwitterPfp } from "@/lib/twitter-pfp.functions";
-import { Download, ExternalLink, Loader2, Twitter, Wallet } from "lucide-react";
+import { Download, ExternalLink, ImageUp, Twitter, Wallet } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -216,40 +215,54 @@ function MintCard() {
   );
   const handleValid = /^[A-Za-z0-9_]{1,15}$/.test(cleanHandle);
 
-  // ── Live PFP preview ───────────────────────────────────────────────
-  const [pfpUrl, setPfpUrl] = useState<string | null>(null);
-  const [pfpLoading, setPfpLoading] = useState(false);
-  const [pfpFallback, setPfpFallback] = useState(false);
+  // ── Uploaded PFP ───────────────────────────────────────────────────
+  const [pfpFile, setPfpFile] = useState<File | null>(null);
+  const [pfpPreview, setPfpPreview] = useState<string | null>(null);
+  const [pfpError, setPfpError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!handleValid) {
-      setPfpUrl(null);
-      setPfpFallback(false);
+    if (!pfpFile) {
+      setPfpPreview(null);
       return;
     }
-    let cancelled = false;
-    setPfpLoading(true);
-    const t = setTimeout(async () => {
-      try {
-        const res = await getTwitterPfp({ data: { handle: cleanHandle } });
-        if (cancelled) return;
-        setPfpUrl(res.imageUrl);
-        setPfpFallback(res.fallback);
-      } catch {
-        if (!cancelled) {
-          setPfpUrl(null);
-          setPfpFallback(true);
-        }
-      } finally {
-        if (!cancelled) setPfpLoading(false);
-      }
-    }, 450);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-      setPfpLoading(false);
-    };
-  }, [cleanHandle, handleValid]);
+    const url = URL.createObjectURL(pfpFile);
+    setPfpPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pfpFile]);
+
+  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    setPfpError(null);
+    const file = e.target.files?.[0];
+    if (!file) {
+      setPfpFile(null);
+      return;
+    }
+    if (!["image/jpeg", "image/png"].includes(file.type)) {
+      setPfpError("Only JPEG or PNG images are allowed.");
+      setPfpFile(null);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setPfpError("Image must be 5MB or smaller.");
+      setPfpFile(null);
+      return;
+    }
+    setPfpFile(file);
+  }
+
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // strip "data:<mime>;base64," prefix
+        const idx = result.indexOf(",");
+        resolve(idx >= 0 ? result.slice(idx + 1) : result);
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
 
   const canMint =
     IS_CONTRACT_CONFIGURED &&
@@ -258,18 +271,26 @@ function MintCard() {
     !soldOut &&
     !alreadyMinted &&
     handleValid &&
+    !!pfpFile &&
     !pinning &&
     !writing &&
     !confirming;
 
   async function handleMint() {
-    if (!address) return;
+    if (!address || !pfpFile) return;
     try {
       setPinning(true);
       const nextId = Number(minted) + 1;
       toast.info("Pinning your Dunce to IPFS…");
+      const imageBase64 = await fileToBase64(pfpFile);
       const { tokenURI, imageGatewayUrl } = await pinMintMetadata({
-        data: { handle: cleanHandle, nextId, minter: address },
+        data: {
+          handle: cleanHandle,
+          nextId,
+          minter: address,
+          imageBase64,
+          imageMime: pfpFile.type as "image/jpeg" | "image/png",
+        },
       });
       setMintedImageUrl(imageGatewayUrl);
       setPinning(false);
@@ -356,40 +377,55 @@ function MintCard() {
               )}
             </div>
 
-            {/* Live PFP preview */}
-            {handleValid && (
-              <div className="flex items-center gap-4 rounded-md border border-border/60 bg-muted/30 p-3">
+            {/* PFP upload */}
+            <div className="space-y-2">
+              <label className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                Your Dunce PFP (JPEG or PNG, max 5MB)
+              </label>
+              <label
+                className={`flex cursor-pointer items-center gap-4 rounded-md border border-dashed border-border/60 bg-muted/30 p-3 transition-colors hover:bg-muted/50 ${
+                  !isConnected || pinning || writing || confirming
+                    ? "pointer-events-none opacity-50"
+                    : ""
+                }`}
+              >
                 <div className="relative h-14 w-14 shrink-0">
-                  {pfpLoading ? (
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-border/60 bg-muted">
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : pfpUrl ? (
+                  {pfpPreview ? (
                     <img
-                      src={pfpUrl}
-                      alt={`@${cleanHandle}`}
+                      src={pfpPreview}
+                      alt="PFP preview"
                       className="h-14 w-14 rounded-full border-2 object-cover"
                       style={{ borderColor: "var(--ritual-gold)" }}
-                      onError={() => setPfpFallback(true)}
                     />
                   ) : (
-                    <div className="h-14 w-14 rounded-full border border-border/60 bg-muted" />
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-border/60 bg-muted">
+                      <ImageUp className="h-5 w-5 text-muted-foreground" />
+                    </div>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-mono text-sm text-foreground">
-                    @{cleanHandle}
+                    {pfpFile ? pfpFile.name : "Choose an image…"}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    {pfpLoading
-                      ? "Fetching PFP from X…"
-                      : pfpFallback
-                        ? "Couldn't fetch PFP — default will be used."
-                        : "This is the image that will be sealed on-chain."}
+                    {pfpFile
+                      ? "This is the image that will be sealed on-chain."
+                      : "Click to upload from your device."}
                   </p>
                 </div>
-              </div>
-            )}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  className="hidden"
+                  onChange={onPickFile}
+                  disabled={!isConnected || pinning || writing || confirming}
+                />
+              </label>
+              {pfpError && (
+                <p className="text-xs text-destructive">{pfpError}</p>
+              )}
+            </div>
+
 
             <Button
               size="lg"
