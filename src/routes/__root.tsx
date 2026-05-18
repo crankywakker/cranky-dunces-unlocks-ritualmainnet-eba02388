@@ -80,7 +80,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "666 free mints to unlock Ritual Mainnet. Mint your Dunce with your Twitter PFP. Designed by crankywakker.",
       },
-      { property: "og:title", content: "The Great Dunce's of Ritual" },
+      { property: "og:title", content: "The Great Dunce's of Ritual — 666 free mints" },
       {
         property: "og:description",
         content: "666 free mints to unlock Ritual Mainnet. Designed by crankywakker.",
@@ -88,6 +88,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:creator", content: "@crankywakker" },
+      { name: "twitter:title", content: "The Great Dunce's of Ritual — 666 free mints" },
+      { name: "description", content: "Josh's Dunce Army On a mission to unlock Ritual Mainnet" },
+      { property: "og:description", content: "Josh's Dunce Army On a mission to unlock Ritual Mainnet" },
+      { name: "twitter:description", content: "Josh's Dunce Army On a mission to unlock Ritual Mainnet" },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/36501c09-252b-4186-9c41-ff8c09271dbc/id-preview-7555284b--6a445006-e9bf-41dd-b0d2-1f8a02c50853.lovable.app-1779113473633.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/36501c09-252b-4186-9c41-ff8c09271dbc/id-preview-7555284b--6a445006-e9bf-41dd-b0d2-1f8a02c50853.lovable.app-1779113473633.png" },
     ],
     links: [
       {
