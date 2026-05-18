@@ -377,40 +377,55 @@ function MintCard() {
               )}
             </div>
 
-            {/* Live PFP preview */}
-            {handleValid && (
-              <div className="flex items-center gap-4 rounded-md border border-border/60 bg-muted/30 p-3">
+            {/* PFP upload */}
+            <div className="space-y-2">
+              <label className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                Your Dunce PFP (JPEG or PNG, max 5MB)
+              </label>
+              <label
+                className={`flex cursor-pointer items-center gap-4 rounded-md border border-dashed border-border/60 bg-muted/30 p-3 transition-colors hover:bg-muted/50 ${
+                  !isConnected || pinning || writing || confirming
+                    ? "pointer-events-none opacity-50"
+                    : ""
+                }`}
+              >
                 <div className="relative h-14 w-14 shrink-0">
-                  {pfpLoading ? (
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-border/60 bg-muted">
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : pfpUrl ? (
+                  {pfpPreview ? (
                     <img
-                      src={pfpUrl}
-                      alt={`@${cleanHandle}`}
+                      src={pfpPreview}
+                      alt="PFP preview"
                       className="h-14 w-14 rounded-full border-2 object-cover"
                       style={{ borderColor: "var(--ritual-gold)" }}
-                      onError={() => setPfpFallback(true)}
                     />
                   ) : (
-                    <div className="h-14 w-14 rounded-full border border-border/60 bg-muted" />
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-border/60 bg-muted">
+                      <ImageUp className="h-5 w-5 text-muted-foreground" />
+                    </div>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-mono text-sm text-foreground">
-                    @{cleanHandle}
+                    {pfpFile ? pfpFile.name : "Choose an image…"}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    {pfpLoading
-                      ? "Fetching PFP from X…"
-                      : pfpFallback
-                        ? "Couldn't fetch PFP — default will be used."
-                        : "This is the image that will be sealed on-chain."}
+                    {pfpFile
+                      ? "This is the image that will be sealed on-chain."
+                      : "Click to upload from your device."}
                   </p>
                 </div>
-              </div>
-            )}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  className="hidden"
+                  onChange={onPickFile}
+                  disabled={!isConnected || pinning || writing || confirming}
+                />
+              </label>
+              {pfpError && (
+                <p className="text-xs text-destructive">{pfpError}</p>
+              )}
+            </div>
+
 
             <Button
               size="lg"
