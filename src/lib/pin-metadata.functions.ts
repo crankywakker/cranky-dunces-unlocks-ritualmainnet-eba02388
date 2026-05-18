@@ -38,7 +38,8 @@ async function pinImage(
   jwt: string,
 ): Promise<string> {
   const ext = mime === "image/png" ? "png" : "jpg";
-  const blob = new Blob([bytes], { type: mime });
+  const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  const blob = new Blob([ab], { type: mime });
   const form = new FormData();
   form.append("file", blob, `pfp.${ext}`);
   form.append("pinataMetadata", JSON.stringify({ name: "dunce-pfp" }));
