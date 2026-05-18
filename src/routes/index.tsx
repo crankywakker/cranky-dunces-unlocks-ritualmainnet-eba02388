@@ -24,7 +24,8 @@ import {
 } from "@/lib/contract";
 import { ritualChain } from "@/lib/wagmi";
 import { pinMintMetadata } from "@/lib/pin-metadata.functions";
-import { Download, ExternalLink, Twitter, Wallet } from "lucide-react";
+import { getTwitterPfp } from "@/lib/twitter-pfp.functions";
+import { Download, ExternalLink, Loader2, Twitter, Wallet } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -215,6 +216,41 @@ function MintCard() {
   );
   const handleValid = /^[A-Za-z0-9_]{1,15}$/.test(cleanHandle);
 
+  // ── Live PFP preview ───────────────────────────────────────────────
+  const [pfpUrl, setPfpUrl] = useState<string | null>(null);
+  const [pfpLoading, setPfpLoading] = useState(false);
+  const [pfpFallback, setPfpFallback] = useState(false);
+
+  useEffect(() => {
+    if (!handleValid) {
+      setPfpUrl(null);
+      setPfpFallback(false);
+      return;
+    }
+    let cancelled = false;
+    setPfpLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await getTwitterPfp({ data: { handle: cleanHandle } });
+        if (cancelled) return;
+        setPfpUrl(res.imageUrl);
+        setPfpFallback(res.fallback);
+      } catch {
+        if (!cancelled) {
+          setPfpUrl(null);
+          setPfpFallback(true);
+        }
+      } finally {
+        if (!cancelled) setPfpLoading(false);
+      }
+    }, 450);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+      setPfpLoading(false);
+    };
+  }, [cleanHandle, handleValid]);
+
   const canMint =
     IS_CONTRACT_CONFIGURED &&
     isConnected &&
@@ -319,6 +355,41 @@ function MintCard() {
                 </p>
               )}
             </div>
+
+            {/* Live PFP preview */}
+            {handleValid && (
+              <div className="flex items-center gap-4 rounded-md border border-border/60 bg-muted/30 p-3">
+                <div className="relative h-14 w-14 shrink-0">
+                  {pfpLoading ? (
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-border/60 bg-muted">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : pfpUrl ? (
+                    <img
+                      src={pfpUrl}
+                      alt={`@${cleanHandle}`}
+                      className="h-14 w-14 rounded-full border-2 object-cover"
+                      style={{ borderColor: "var(--ritual-gold)" }}
+                      onError={() => setPfpFallback(true)}
+                    />
+                  ) : (
+                    <div className="h-14 w-14 rounded-full border border-border/60 bg-muted" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-mono text-sm text-foreground">
+                    @{cleanHandle}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {pfpLoading
+                      ? "Fetching PFP from X…"
+                      : pfpFallback
+                        ? "Couldn't fetch PFP — default will be used."
+                        : "This is the image that will be sealed on-chain."}
+                  </p>
+                </div>
+              </div>
+            )}
 
             <Button
               size="lg"
