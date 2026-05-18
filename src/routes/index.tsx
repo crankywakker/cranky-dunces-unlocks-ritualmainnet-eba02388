@@ -24,7 +24,8 @@ import {
 } from "@/lib/contract";
 import { ritualChain } from "@/lib/wagmi";
 import { pinMintMetadata } from "@/lib/pin-metadata.functions";
-import { Download, ExternalLink, Twitter, Wallet } from "lucide-react";
+import { getTwitterPfp } from "@/lib/twitter-pfp.functions";
+import { Download, ExternalLink, Loader2, Twitter, Wallet } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Index,
