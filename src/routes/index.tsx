@@ -485,9 +485,9 @@ function PostMint({
   imageUrl: string | null;
 }) {
   const explorerUrl = `${ritualChain.blockExplorers.default.url}/tx/${txHash}`;
-  const shareText = `I just minted Dunce #${tokenId} of 666 on @ritualfoundation — designed by @crankywakker. Mint yours free:`;
-  const shareUrl = typeof window !== "undefined" ? window.location.origin : "";
-  const xIntent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+  const shareUrl = "https://cranky-dunces-unlocks-ritualmainnet.lovable.app/";
+  const shareText = `I just minted Dunce #${tokenId} of 666 on @ritualnet designed by @jumplifey9. Mint yours for free: ${shareUrl}`;
+  const xIntent = `https://x.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
 
   const [cardUrl, setCardUrl] = useState<string | null>(null);
   const [cardBlob, setCardBlob] = useState<Blob | null>(null);
