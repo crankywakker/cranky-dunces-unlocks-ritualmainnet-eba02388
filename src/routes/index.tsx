@@ -540,8 +540,7 @@ function PostMint({
         const file = new File([cardBlob], `dunce-${handle}-${tokenId}.png`, {
           type: "image/png",
         });
-        // @ts-expect-error canShare files typing
-        if (navigator.canShare({ files: [file] })) {
+        if ((navigator as Navigator & { canShare: (d: { files: File[] }) => boolean }).canShare({ files: [file] })) {
           await (navigator as Navigator & {
             share: (d: ShareData & { files: File[] }) => Promise<void>;
           }).share({
