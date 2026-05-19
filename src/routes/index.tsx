@@ -533,31 +533,8 @@ function PostMint({
     URL.revokeObjectURL(a.href);
   }
 
-  async function shareOnX() {
-    // Try native share with file first (mobile / supported browsers)
-    if (cardBlob && typeof navigator !== "undefined" && "canShare" in navigator) {
-      try {
-        const file = new File([cardBlob], `dunce-${handle}-${tokenId}.png`, {
-          type: "image/png",
-        });
-        if ((navigator as Navigator & { canShare: (d: { files: File[] }) => boolean }).canShare({ files: [file] })) {
-          await (navigator as Navigator & {
-            share: (d: ShareData & { files: File[] }) => Promise<void>;
-          }).share({
-            files: [file],
-            text: shareText,
-            url: shareUrl,
-          });
-          return;
-        }
-      } catch {
-        /* fall through to X intent */
-      }
-    }
-    // Auto-download so the user can attach to the tweet
-    download();
-    toast.info("Card downloaded — attach it to your tweet ☉");
-    window.open(xIntent, "_blank", "noreferrer");
+  function shareOnX() {
+    window.open(xIntent, "_blank", "noopener,noreferrer");
   }
 
   return (
