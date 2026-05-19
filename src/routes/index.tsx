@@ -460,6 +460,7 @@ function MintCard() {
             txHash={txHash!}
             handle={cleanHandle}
             tokenId={mintedTokenId ?? minted}
+            localPfpUrl={pfpPreview}
             imageUrl={mintedImageUrl}
           />
         )}
