@@ -539,12 +539,12 @@ function PostMint({
 
   return (
     <div className="space-y-5 text-center">
-      <div className="overflow-hidden rounded-lg border border-border/60">
+      <div className="overflow-hidden rounded-lg border border-border/60 aspect-[16/9] bg-muted">
         {cardUrl ? (
           <img
             src={cardUrl}
             alt={`Dunce #${tokenId} share card`}
-            className="block w-full"
+            className="block h-full w-full object-contain"
           />
         ) : (
           <div className="flex aspect-[16/9] items-center justify-center bg-muted text-xs text-muted-foreground">
