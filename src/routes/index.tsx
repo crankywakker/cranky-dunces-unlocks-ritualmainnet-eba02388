@@ -485,9 +485,9 @@ function PostMint({
   imageUrl: string | null;
 }) {
   const explorerUrl = `${ritualChain.blockExplorers.default.url}/tx/${txHash}`;
-  const shareText = `I just minted Dunce #${tokenId} of 666 on @ritualfoundation — designed by @crankywakker. Mint yours free:`;
-  const shareUrl = typeof window !== "undefined" ? window.location.origin : "";
-  const xIntent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+  const shareUrl = "https://cranky-dunces-unlocks-ritualmainnet.lovable.app/";
+  const shareText = `I just minted Dunce #${tokenId} of 666 on @ritualnet designed by @jumplifey9. Mint yours for free: ${shareUrl}`;
+  const xIntent = `https://x.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
 
   const [cardUrl, setCardUrl] = useState<string | null>(null);
   const [cardBlob, setCardBlob] = useState<Blob | null>(null);
@@ -533,41 +533,18 @@ function PostMint({
     URL.revokeObjectURL(a.href);
   }
 
-  async function shareOnX() {
-    // Try native share with file first (mobile / supported browsers)
-    if (cardBlob && typeof navigator !== "undefined" && "canShare" in navigator) {
-      try {
-        const file = new File([cardBlob], `dunce-${handle}-${tokenId}.png`, {
-          type: "image/png",
-        });
-        if ((navigator as Navigator & { canShare: (d: { files: File[] }) => boolean }).canShare({ files: [file] })) {
-          await (navigator as Navigator & {
-            share: (d: ShareData & { files: File[] }) => Promise<void>;
-          }).share({
-            files: [file],
-            text: shareText,
-            url: shareUrl,
-          });
-          return;
-        }
-      } catch {
-        /* fall through to X intent */
-      }
-    }
-    // Auto-download so the user can attach to the tweet
-    download();
-    toast.info("Card downloaded — attach it to your tweet ☉");
-    window.open(xIntent, "_blank", "noreferrer");
+  function shareOnX() {
+    window.open(xIntent, "_blank", "noopener,noreferrer");
   }
 
   return (
     <div className="space-y-5 text-center">
-      <div className="overflow-hidden rounded-lg border border-border/60">
+      <div className="overflow-hidden rounded-lg border border-border/60 aspect-[16/9] bg-muted">
         {cardUrl ? (
           <img
             src={cardUrl}
             alt={`Dunce #${tokenId} share card`}
-            className="block w-full"
+            className="block h-full w-full object-contain"
           />
         ) : (
           <div className="flex aspect-[16/9] items-center justify-center bg-muted text-xs text-muted-foreground">
@@ -589,7 +566,6 @@ function PostMint({
         </Button>
         <Button
           onClick={shareOnX}
-          disabled={!cardBlob}
           style={{ background: "var(--gradient-ritual)", color: "var(--ritual-obsidian)" }}
         >
           <Twitter className="mr-2 h-4 w-4" /> Share on X
