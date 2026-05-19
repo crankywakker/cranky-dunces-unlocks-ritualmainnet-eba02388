@@ -25,6 +25,7 @@ import {
 import { ritualChain } from "@/lib/wagmi";
 import { pinMintMetadata } from "@/lib/pin-metadata.functions";
 import { Download, ExternalLink, ImageUp, Twitter, Wallet } from "lucide-react";
+import dunceLogo from "@/assets/dunce-logo.jpg";
 
 export const Route = createFileRoute("/")({
   component: Index,
