@@ -25,6 +25,7 @@ import {
 import { ritualChain } from "@/lib/wagmi";
 import { pinMintMetadata } from "@/lib/pin-metadata.functions";
 import { Download, ExternalLink, ImageUp, Twitter, Wallet } from "lucide-react";
+import dunceLogo from "@/assets/dunce-logo.jpg";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -64,9 +65,10 @@ function Header() {
   return (
     <header className="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-between px-6 pt-6">
       <div className="flex items-center gap-2">
-        <div
-          className="h-8 w-8 rounded-md"
-          style={{ background: "var(--gradient-ritual)" }}
+        <img
+          src={dunceLogo}
+          alt="Great Dunces of Ritual"
+          className="h-8 w-8 rounded-md object-cover"
         />
         <span className="font-mono text-sm uppercase tracking-[0.2em] text-muted-foreground">
           Ritual&nbsp;/&nbsp;Dunces
