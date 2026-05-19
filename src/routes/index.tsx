@@ -566,7 +566,6 @@ function PostMint({
         </Button>
         <Button
           onClick={shareOnX}
-          disabled={!cardBlob}
           style={{ background: "var(--gradient-ritual)", color: "var(--ritual-obsidian)" }}
         >
           <Twitter className="mr-2 h-4 w-4" /> Share on X
