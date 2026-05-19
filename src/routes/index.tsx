@@ -475,11 +475,13 @@ function PostMint({
   txHash,
   handle,
   tokenId,
+  localPfpUrl,
   imageUrl,
 }: {
   txHash: `0x${string}`;
   handle: string;
   tokenId: bigint;
+  localPfpUrl: string | null;
   imageUrl: string | null;
 }) {
   const explorerUrl = `${ritualChain.blockExplorers.default.url}/tx/${txHash}`;
@@ -487,31 +489,93 @@ function PostMint({
   const shareUrl = typeof window !== "undefined" ? window.location.origin : "";
   const xIntent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
 
-  async function download() {
-    if (!imageUrl) return;
-    try {
-      const res = await fetch(imageUrl);
-      const blob = await res.blob();
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `dunce-${handle}-${tokenId}.jpg`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    } catch {
-      toast.error("Couldn't download — image still propagating on IPFS.");
+  const [cardUrl, setCardUrl] = useState<string | null>(null);
+  const [cardBlob, setCardBlob] = useState<Blob | null>(null);
+  const [building, setBuilding] = useState(true);
+
+  useEffect(() => {
+    let revoke: string | null = null;
+    let cancelled = false;
+    (async () => {
+      try {
+        setBuilding(true);
+        const pfpSrc = localPfpUrl ?? imageUrl;
+        if (!pfpSrc) return;
+        const blob = await buildShareCard({
+          pfpUrl: pfpSrc,
+          dunceNumber: tokenId,
+          handle,
+        });
+        if (cancelled) return;
+        const url = URL.createObjectURL(blob);
+        revoke = url;
+        setCardBlob(blob);
+        setCardUrl(url);
+      } catch (e) {
+        console.error(e);
+        toast.error("Couldn't render share card.");
+      } finally {
+        if (!cancelled) setBuilding(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (revoke) URL.revokeObjectURL(revoke);
+    };
+  }, [localPfpUrl, imageUrl, tokenId, handle]);
+
+  function download() {
+    if (!cardBlob) return;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(cardBlob);
+    a.download = `dunce-${handle}-${String(tokenId)}.png`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  async function shareOnX() {
+    // Try native share with file first (mobile / supported browsers)
+    if (cardBlob && typeof navigator !== "undefined" && "canShare" in navigator) {
+      try {
+        const file = new File([cardBlob], `dunce-${handle}-${tokenId}.png`, {
+          type: "image/png",
+        });
+        // @ts-expect-error canShare files typing
+        if (navigator.canShare({ files: [file] })) {
+          await (navigator as Navigator & {
+            share: (d: ShareData & { files: File[] }) => Promise<void>;
+          }).share({
+            files: [file],
+            text: shareText,
+            url: shareUrl,
+          });
+          return;
+        }
+      } catch {
+        /* fall through to X intent */
+      }
     }
+    // Auto-download so the user can attach to the tweet
+    download();
+    toast.info("Card downloaded — attach it to your tweet ☉");
+    window.open(xIntent, "_blank", "noreferrer");
   }
 
   return (
     <div className="space-y-5 text-center">
-      {imageUrl && (
-        <img
-          src={imageUrl}
-          alt={`Dunce #${tokenId}`}
-          className="mx-auto h-40 w-40 rounded-full border-2"
-          style={{ borderColor: "var(--ritual-gold)" }}
-        />
-      )}
+      <div className="overflow-hidden rounded-lg border border-border/60">
+        {cardUrl ? (
+          <img
+            src={cardUrl}
+            alt={`Dunce #${tokenId} share card`}
+            className="block w-full"
+          />
+        ) : (
+          <div className="flex aspect-[16/9] items-center justify-center bg-muted text-xs text-muted-foreground">
+            {building ? "Rendering your card…" : "Card unavailable"}
+          </div>
+        )}
+      </div>
       <div>
         <p className="font-mono text-xs uppercase tracking-[0.25em] text-accent">
           Dunce #{tokenId.toString()} sealed
@@ -521,16 +585,15 @@ function PostMint({
         </p>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <Button variant="outline" onClick={download} disabled={!imageUrl}>
-          <Download className="mr-2 h-4 w-4" /> Download
+        <Button variant="outline" onClick={download} disabled={!cardBlob}>
+          <Download className="mr-2 h-4 w-4" /> Download card
         </Button>
         <Button
-          asChild
+          onClick={shareOnX}
+          disabled={!cardBlob}
           style={{ background: "var(--gradient-ritual)", color: "var(--ritual-obsidian)" }}
         >
-          <a href={xIntent} target="_blank" rel="noreferrer">
-            <Twitter className="mr-2 h-4 w-4" /> Share on X
-          </a>
+          <Twitter className="mr-2 h-4 w-4" /> Share on X
         </Button>
       </div>
       <a
