@@ -586,7 +586,7 @@ function PostMint({
       </div>
       <div>
         <p className="font-mono text-xs uppercase tracking-[0.25em] text-accent">
-          Dunce #{tokenId.toString()} sealed
+          {heading ?? `Dunce #${tokenId.toString()} sealed`}
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
           Welcome to the order, @{handle}.
