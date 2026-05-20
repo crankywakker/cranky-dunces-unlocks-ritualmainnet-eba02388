@@ -24,6 +24,7 @@ import {
 } from "@/lib/contract";
 import { ritualChain } from "@/lib/wagmi";
 import { pinMintMetadata } from "@/lib/pin-metadata.functions";
+import { useOwnedDunce } from "@/lib/use-owned-dunce";
 import { buildShareCard } from "@/lib/build-share-card";
 import { Download, ExternalLink, ImageUp, Twitter, Wallet } from "lucide-react";
 import dunceLogo from "@/assets/dunce-logo.jpg";
