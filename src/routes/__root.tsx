@@ -92,8 +92,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "description", content: "Josh's Dunce Army On a mission to unlock Ritual Mainnet" },
       { property: "og:description", content: "Josh's Dunce Army On a mission to unlock Ritual Mainnet" },
       { name: "twitter:description", content: "Josh's Dunce Army On a mission to unlock Ritual Mainnet" },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/36501c09-252b-4186-9c41-ff8c09271dbc/id-preview-7555284b--6a445006-e9bf-41dd-b0d2-1f8a02c50853.lovable.app-1779113473633.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/36501c09-252b-4186-9c41-ff8c09271dbc/id-preview-7555284b--6a445006-e9bf-41dd-b0d2-1f8a02c50853.lovable.app-1779113473633.png" },
+      { property: "og:image", content: "https://cranky-dunces-unlocks-ritualmainnet.lovable.app/og-card.png" },
+      { name: "twitter:image", content: "https://cranky-dunces-unlocks-ritualmainnet.lovable.app/og-card.png" },
     ],
     links: [
       {

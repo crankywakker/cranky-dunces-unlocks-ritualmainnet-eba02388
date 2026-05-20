@@ -24,16 +24,16 @@ export async function buildShareCard(opts: {
   // Base template
   ctx.drawImage(template, 0, 0, W, H);
 
-  // PFP circle (matches template ring at ~cx 330, cy 405, r 148)
-  const cx = 330;
-  const cy = 405;
-  const r = 148;
+  // PFP circle (matches new template ring) — 373px inner diameter
+  const cx = 327;
+  const cy = 421;
+  const r = 186;
   ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.closePath();
   ctx.clip();
-  // cover-fit pfp into circle bounds
+  // object-fit: cover, object-position: center
   const size = r * 2;
   const ratio = Math.max(size / pfp.width, size / pfp.height);
   const dw = pfp.width * ratio;
