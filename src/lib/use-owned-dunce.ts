@@ -43,7 +43,7 @@ export function useOwnedDunce(address: Address | undefined, enabled: boolean) {
         const logs = await publicClient.getLogs({
           address: DUNCES_ADDRESS,
           event: eventAbi as never,
-          args: { minter: address },
+          args: { minter: address } as never,
           fromBlock: 0n,
           toBlock: "latest",
         });
