@@ -603,14 +603,16 @@ function PostMint({
           <Twitter className="mr-2 h-4 w-4" /> Share on X
         </Button>
       </div>
-      <a
-        href={explorerUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-      >
-        View transaction <ExternalLink className="h-3 w-3" />
-      </a>
+      {explorerUrl && (
+        <a
+          href={explorerUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          View transaction <ExternalLink className="h-3 w-3" />
+        </a>
+      )}
     </div>
   );
 }
