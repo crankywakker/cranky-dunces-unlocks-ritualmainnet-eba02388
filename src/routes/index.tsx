@@ -505,14 +505,18 @@ function PostMint({
   tokenId,
   localPfpUrl,
   imageUrl,
+  heading,
 }: {
-  txHash: `0x${string}`;
+  txHash?: `0x${string}`;
   handle: string;
   tokenId: bigint;
   localPfpUrl: string | null;
   imageUrl: string | null;
+  heading?: string;
 }) {
-  const explorerUrl = `${ritualChain.blockExplorers.default.url}/tx/${txHash}`;
+  const explorerUrl = txHash
+    ? `${ritualChain.blockExplorers.default.url}/tx/${txHash}`
+    : null;
   const shareUrl = "https://cranky-dunces-unlocks-ritualmainnet.lovable.app/";
   const shareText = `I just minted Dunce #${tokenId} of 666 on @ritualnet designed by @jumplifey9. Mint yours for free: ${shareUrl}`;
   const xIntent = `https://x.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
