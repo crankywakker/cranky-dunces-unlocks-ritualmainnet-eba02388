@@ -359,8 +359,8 @@ function MintCard() {
           </Button>
         )}
 
-        {/* Handle input + mint */}
-        {!confirmed && (
+        {/* Handle input + mint — only when this wallet has NOT yet minted */}
+        {!confirmed && !alreadyMinted && (
           <>
             <div className="space-y-2">
               <label className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
@@ -445,20 +445,18 @@ function MintCard() {
                 ? "Connect wallet to mint"
                 : soldOut
                   ? "Sold out"
-                  : alreadyMinted
-                    ? "You've already minted"
-                    : pinning
-                      ? "Pinning to IPFS…"
-                      : writing
-                        ? "Confirm in wallet…"
-                        : confirming
-                          ? "Sealing on-chain…"
-                          : "Mint your Dunce — Free"}
+                  : pinning
+                    ? "Pinning to IPFS…"
+                    : writing
+                      ? "Confirm in wallet…"
+                      : confirming
+                        ? "Sealing on-chain…"
+                        : "Mint your Dunce — Free"}
             </Button>
           </>
         )}
 
-        {/* Post-mint */}
+        {/* Post-mint card — fresh mint */}
         {confirmed && (
           <PostMint
             txHash={txHash!}
@@ -467,6 +465,32 @@ function MintCard() {
             localPfpUrl={pfpPreview}
             imageUrl={mintedImageUrl}
           />
+        )}
+
+        {/* Persistent "Your Dunce" view — wallet already owns one */}
+        {!confirmed && alreadyMinted && (
+          <>
+            {owned.loading && !owned.data && (
+              <p className="text-center text-sm text-muted-foreground">
+                Loading your Dunce…
+              </p>
+            )}
+            {owned.error && (
+              <p className="text-center text-sm text-destructive">
+                {owned.error}
+              </p>
+            )}
+            {owned.data && (
+              <PostMint
+                txHash={owned.data.txHash ?? undefined}
+                handle={owned.data.handle}
+                tokenId={owned.data.tokenId}
+                localPfpUrl={null}
+                imageUrl={owned.data.imageUrl}
+                heading="Your Dunce NFT"
+              />
+            )}
+          </>
         )}
       </CardContent>
     </Card>
