@@ -197,6 +197,9 @@ function MintCard() {
   });
   const alreadyMinted = hasMintedQ.data === true;
 
+  // Fetch the user's existing Dunce (if any) so we can show their card on return visits.
+  const owned = useOwnedDunce(address, alreadyMinted && !!address);
+
   const { writeContractAsync, data: txHash, isPending: writing } =
     useWriteContract();
   const { isLoading: confirming, isSuccess: confirmed } =
