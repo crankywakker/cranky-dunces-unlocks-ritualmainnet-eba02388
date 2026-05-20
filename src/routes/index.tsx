@@ -24,6 +24,7 @@ import {
 } from "@/lib/contract";
 import { ritualChain } from "@/lib/wagmi";
 import { pinMintMetadata } from "@/lib/pin-metadata.functions";
+import { useOwnedDunce } from "@/lib/use-owned-dunce";
 import { buildShareCard } from "@/lib/build-share-card";
 import { Download, ExternalLink, ImageUp, Twitter, Wallet } from "lucide-react";
 import dunceLogo from "@/assets/dunce-logo.jpg";
@@ -196,6 +197,9 @@ function MintCard() {
   });
   const alreadyMinted = hasMintedQ.data === true;
 
+  // Fetch the user's existing Dunce (if any) so we can show their card on return visits.
+  const owned = useOwnedDunce(address, alreadyMinted && !!address);
+
   const { writeContractAsync, data: txHash, isPending: writing } =
     useWriteContract();
   const { isLoading: confirming, isSuccess: confirmed } =
@@ -355,8 +359,8 @@ function MintCard() {
           </Button>
         )}
 
-        {/* Handle input + mint */}
-        {!confirmed && (
+        {/* Handle input + mint — only when this wallet has NOT yet minted */}
+        {!confirmed && !alreadyMinted && (
           <>
             <div className="space-y-2">
               <label className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
@@ -441,20 +445,18 @@ function MintCard() {
                 ? "Connect wallet to mint"
                 : soldOut
                   ? "Sold out"
-                  : alreadyMinted
-                    ? "You've already minted"
-                    : pinning
-                      ? "Pinning to IPFS…"
-                      : writing
-                        ? "Confirm in wallet…"
-                        : confirming
-                          ? "Sealing on-chain…"
-                          : "Mint your Dunce — Free"}
+                  : pinning
+                    ? "Pinning to IPFS…"
+                    : writing
+                      ? "Confirm in wallet…"
+                      : confirming
+                        ? "Sealing on-chain…"
+                        : "Mint your Dunce — Free"}
             </Button>
           </>
         )}
 
-        {/* Post-mint */}
+        {/* Post-mint card — fresh mint */}
         {confirmed && (
           <PostMint
             txHash={txHash!}
@@ -463,6 +465,32 @@ function MintCard() {
             localPfpUrl={pfpPreview}
             imageUrl={mintedImageUrl}
           />
+        )}
+
+        {/* Persistent "Your Dunce" view — wallet already owns one */}
+        {!confirmed && alreadyMinted && (
+          <>
+            {owned.loading && !owned.data && (
+              <p className="text-center text-sm text-muted-foreground">
+                Loading your Dunce…
+              </p>
+            )}
+            {owned.error && (
+              <p className="text-center text-sm text-destructive">
+                {owned.error}
+              </p>
+            )}
+            {owned.data && (
+              <PostMint
+                txHash={owned.data.txHash ?? undefined}
+                handle={owned.data.handle}
+                tokenId={owned.data.tokenId}
+                localPfpUrl={null}
+                imageUrl={owned.data.imageUrl}
+                heading="Your Dunce NFT"
+              />
+            )}
+          </>
         )}
       </CardContent>
     </Card>
@@ -477,14 +505,18 @@ function PostMint({
   tokenId,
   localPfpUrl,
   imageUrl,
+  heading,
 }: {
-  txHash: `0x${string}`;
+  txHash?: `0x${string}`;
   handle: string;
   tokenId: bigint;
   localPfpUrl: string | null;
   imageUrl: string | null;
+  heading?: string;
 }) {
-  const explorerUrl = `${ritualChain.blockExplorers.default.url}/tx/${txHash}`;
+  const explorerUrl = txHash
+    ? `${ritualChain.blockExplorers.default.url}/tx/${txHash}`
+    : null;
   const shareUrl = "https://cranky-dunces-unlocks-ritualmainnet.lovable.app/";
   const shareText = `I just minted Dunce #${tokenId} of 666 on @ritualnet designed by @jumplifey9. Mint yours for free: ${shareUrl}`;
   const xIntent = `https://x.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
@@ -554,7 +586,7 @@ function PostMint({
       </div>
       <div>
         <p className="font-mono text-xs uppercase tracking-[0.25em] text-accent">
-          Dunce #{tokenId.toString()} sealed
+          {heading ?? `Dunce #${tokenId.toString()} sealed`}
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
           Welcome to the order, @{handle}.
@@ -571,14 +603,16 @@ function PostMint({
           <Twitter className="mr-2 h-4 w-4" /> Share on X
         </Button>
       </div>
-      <a
-        href={explorerUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-      >
-        View transaction <ExternalLink className="h-3 w-3" />
-      </a>
+      {explorerUrl && (
+        <a
+          href={explorerUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          View transaction <ExternalLink className="h-3 w-3" />
+        </a>
+      )}
     </div>
   );
 }
