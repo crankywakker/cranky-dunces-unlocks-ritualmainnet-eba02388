@@ -16,9 +16,23 @@ function ipfsToGateway(uri: string): string {
   return uri;
 }
 
+// Ritual RPC caps eth_getLogs at 100k blocks per request.
+const LOG_CHUNK = 99_000n;
+
+// Optional: set VITE_DUNCES_DEPLOY_BLOCK to the contract's deployment block to
+// short-circuit the backward scan. Falls back to 0 (best-effort) when unset.
+const DEPLOY_BLOCK_RAW = (import.meta.env.VITE_DUNCES_DEPLOY_BLOCK ?? "").trim();
+const DEPLOY_BLOCK: bigint = /^\d+$/.test(DEPLOY_BLOCK_RAW)
+  ? BigInt(DEPLOY_BLOCK_RAW)
+  : 0n;
+
 /**
  * Looks up the Dunce token already owned by `address` via the DunceMinted
  * event log, then fetches its IPFS metadata for handle + image.
+ *
+ * The hook is gated by the caller on `hasMinted(address)` so we only run
+ * when we already know a token exists. We scan event logs in ≤100k-block
+ * chunks (Ritual RPC limit) walking backwards from the latest block.
  */
 export function useOwnedDunce(address: Address | undefined, enabled: boolean) {
   const publicClient = usePublicClient();
@@ -40,24 +54,42 @@ export function useOwnedDunce(address: Address | undefined, enabled: boolean) {
         const eventAbi = DUNCES_ABI.find(
           (i) => i.type === "event" && i.name === "DunceMinted",
         );
-        const logs = await publicClient.getLogs({
-          address: DUNCES_ADDRESS,
-          event: eventAbi as never,
-          args: { minter: address } as never,
-          fromBlock: 0n,
-          toBlock: "latest",
-        });
+
+        const latest = await publicClient.getBlockNumber();
+        let toBlock = latest;
+        let found: {
+          args: { tokenId: bigint; tokenURI: string };
+          transactionHash: `0x${string}`;
+        } | null = null;
+
+        // Walk backwards in 99k-block windows until we find the mint or hit DEPLOY_BLOCK.
+        while (!cancelled && toBlock >= DEPLOY_BLOCK) {
+          const fromBlock =
+            toBlock > LOG_CHUNK + DEPLOY_BLOCK
+              ? toBlock - LOG_CHUNK
+              : DEPLOY_BLOCK;
+          const logs = await publicClient.getLogs({
+            address: DUNCES_ADDRESS,
+            event: eventAbi as never,
+            args: { minter: address } as never,
+            fromBlock,
+            toBlock,
+          });
+          if (logs.length > 0) {
+            found = logs[0] as unknown as typeof found;
+            break;
+          }
+          if (fromBlock === DEPLOY_BLOCK) break;
+          toBlock = fromBlock - 1n;
+        }
         if (cancelled) return;
-        if (logs.length === 0) {
+        if (!found) {
           setData(null);
           return;
         }
-        const log = logs[0] as unknown as {
-          args: { tokenId: bigint; tokenURI: string };
-          transactionHash: `0x${string}`;
-        };
-        const tokenId = log.args.tokenId;
-        const tokenURI = log.args.tokenURI;
+
+        const tokenId = found.args.tokenId;
+        const tokenURI = found.args.tokenURI;
         const metaUrl = ipfsToGateway(tokenURI);
         const res = await fetch(metaUrl);
         if (!res.ok) throw new Error(`Metadata fetch failed (${res.status})`);
@@ -75,7 +107,7 @@ export function useOwnedDunce(address: Address | undefined, enabled: boolean) {
           tokenId,
           handle,
           imageUrl,
-          txHash: log.transactionHash,
+          txHash: found.transactionHash,
         });
       } catch (e) {
         if (cancelled) return;
