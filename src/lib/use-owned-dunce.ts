@@ -57,10 +57,11 @@ export function useOwnedDunce(address: Address | undefined, enabled: boolean) {
 
         const latest = await publicClient.getBlockNumber();
         let toBlock = latest;
-        let found: {
+        type MintLog = {
           args: { tokenId: bigint; tokenURI: string };
           transactionHash: `0x${string}`;
-        } | null = null;
+        };
+        let found: MintLog | null = null;
 
         // Walk backwards in 99k-block windows until we find the mint or hit DEPLOY_BLOCK.
         while (!cancelled && toBlock >= DEPLOY_BLOCK) {
@@ -76,7 +77,7 @@ export function useOwnedDunce(address: Address | undefined, enabled: boolean) {
             toBlock,
           });
           if (logs.length > 0) {
-            found = logs[0] as unknown as typeof found;
+            found = logs[0] as unknown as MintLog;
             break;
           }
           if (fromBlock === DEPLOY_BLOCK) break;
