@@ -307,12 +307,12 @@ function MintCard() {
     !confirming;
 
   async function handleMint() {
-    if (!address || !pfpFile) return;
+    if (!address || !pfpFile || !pfpDataUrl) return;
     try {
       setPinning(true);
       const nextId = Number(minted) + 1;
       toast.info("Pinning your Dunce to IPFS…");
-      const imageBase64 = await fileToBase64(pfpFile);
+      const imageBase64 = dataUrlToBase64(pfpDataUrl);
       const { tokenURI, imageGatewayUrl } = await pinMintMetadata({
         data: {
           handle: cleanHandle,
