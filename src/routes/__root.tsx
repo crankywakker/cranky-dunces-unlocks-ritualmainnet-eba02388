@@ -4,11 +4,8 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
-  HeadContent,
-  Scripts,
 } from "@tanstack/react-router";
 
-import appCss from "../styles.css?url";
 import { Web3Provider } from "@/components/Web3Provider";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -70,57 +67,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "The Great Dunce's of Ritual — 666 free mints" },
-      {
-        name: "description",
-        content:
-          "666 free mints to unlock Ritual Mainnet. Mint your Dunce with your Twitter PFP. Designed by crankywakker.",
-      },
-      { property: "og:title", content: "The Great Dunce's of Ritual — 666 free mints" },
-      {
-        property: "og:description",
-        content: "666 free mints to unlock Ritual Mainnet. Designed by crankywakker.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:creator", content: "@crankywakker" },
-      { name: "twitter:title", content: "The Great Dunce's of Ritual — 666 free mints" },
-      { name: "description", content: "Josh's Dunce Army On a mission to unlock Ritual Mainnet" },
-      { property: "og:description", content: "Josh's Dunce Army On a mission to unlock Ritual Mainnet" },
-      { name: "twitter:description", content: "Josh's Dunce Army On a mission to unlock Ritual Mainnet" },
-      { property: "og:image", content: "https://cranky-dunces-unlocks-ritualmainnet.lovable.app/og-card.png" },
-      { name: "twitter:image", content: "https://cranky-dunces-unlocks-ritualmainnet.lovable.app/og-card.png" },
-    ],
-    links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
-    ],
-  }),
-  shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
 });
-
-function RootShell({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  );
-}
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
