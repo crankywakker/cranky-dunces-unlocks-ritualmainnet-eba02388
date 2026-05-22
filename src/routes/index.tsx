@@ -223,52 +223,75 @@ function MintCard() {
   const handleValid = /^[A-Za-z0-9_]{1,15}$/.test(cleanHandle);
 
   // ── Uploaded PFP ───────────────────────────────────────────────────
-  const [pfpFile, setPfpFile] = useState<File | null>(null);
+  // We read the file IMMEDIATELY on selection (inside the user-gesture chain)
+  // because mobile browsers (iOS Safari, Android Chrome) often revoke access
+  // to the underlying file pointer by the time the user clicks "Mint",
+  // producing a NotReadableError. Storing the decoded data URL up front
+  // means the mint flow no longer touches the original File handle.
+  const [pfpFile, setPfpFile] = useState<{
+    name: string;
+    type: "image/jpeg" | "image/png";
+    size: number;
+  } | null>(null);
+  const [pfpDataUrl, setPfpDataUrl] = useState<string | null>(null);
   const [pfpPreview, setPfpPreview] = useState<string | null>(null);
   const [pfpError, setPfpError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!pfpFile) {
-      setPfpPreview(null);
-      return;
-    }
-    const url = URL.createObjectURL(pfpFile);
-    setPfpPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [pfpFile]);
+    setPfpPreview(pfpDataUrl);
+  }, [pfpDataUrl]);
 
   function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     setPfpError(null);
     const file = e.target.files?.[0];
     if (!file) {
       setPfpFile(null);
+      setPfpDataUrl(null);
       return;
     }
     if (!["image/jpeg", "image/png"].includes(file.type)) {
       setPfpError("Only JPEG or PNG images are allowed.");
       setPfpFile(null);
+      setPfpDataUrl(null);
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
       setPfpError("Image must be 5MB or smaller.");
       setPfpFile(null);
+      setPfpDataUrl(null);
       return;
     }
-    setPfpFile(file);
+
+    // Read the bytes NOW, while we're still inside the user gesture.
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== "string") {
+        setPfpError("Could not read this image. Please try another file.");
+        setPfpFile(null);
+        setPfpDataUrl(null);
+        return;
+      }
+      setPfpDataUrl(result);
+      setPfpFile({
+        name: file.name,
+        type: file.type as "image/jpeg" | "image/png",
+        size: file.size,
+      });
+    };
+    reader.onerror = () => {
+      setPfpError(
+        "Could not read this image. On mobile, try re-selecting it from your photo library.",
+      );
+      setPfpFile(null);
+      setPfpDataUrl(null);
+    };
+    reader.readAsDataURL(file);
   }
 
-  function fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        // strip "data:<mime>;base64," prefix
-        const idx = result.indexOf(",");
-        resolve(idx >= 0 ? result.slice(idx + 1) : result);
-      };
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    });
+  function dataUrlToBase64(dataUrl: string): string {
+    const idx = dataUrl.indexOf(",");
+    return idx >= 0 ? dataUrl.slice(idx + 1) : dataUrl;
   }
 
   const canMint =
@@ -284,12 +307,12 @@ function MintCard() {
     !confirming;
 
   async function handleMint() {
-    if (!address || !pfpFile) return;
+    if (!address || !pfpFile || !pfpDataUrl) return;
     try {
       setPinning(true);
       const nextId = Number(minted) + 1;
       toast.info("Pinning your Dunce to IPFS…");
-      const imageBase64 = await fileToBase64(pfpFile);
+      const imageBase64 = dataUrlToBase64(pfpDataUrl);
       const { tokenURI, imageGatewayUrl } = await pinMintMetadata({
         data: {
           handle: cleanHandle,
