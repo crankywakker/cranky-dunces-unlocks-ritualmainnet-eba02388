@@ -22,7 +22,7 @@ export const wagmiConfig = createConfig({
   chains: [ritualChain],
   connectors: [injected({ shimDisconnect: true })],
   transports: { [ritualChain.id]: http() },
-  ssr: true,
+  ssr: false,
 });
 
 declare module "wagmi" {
