@@ -64,3 +64,54 @@ export async function pinMintMetadata({
   }
   return json;
 }
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Fallback: build a tiny on-chain-safe tokenURI entirely in the browser.    */
+/* Used when the /api/pin-metadata endpoint is missing (404), times out,     */
+/* or otherwise fails. The result is a `data:application/json;base64,…` URI  */
+/* with NO embedded raster image — just an SVG placard referencing the      */
+/* handle and dunce number. This keeps calldata well under any RPC limit.   */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+function b64encodeUtf8(str: string): string {
+  // Safe UTF-8 → base64 (btoa only handles Latin-1).
+  const bytes = new TextEncoder().encode(str);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+export function buildFallbackTokenURI({
+  handle,
+  nextId,
+}: {
+  handle: string;
+  nextId: number;
+}): { tokenURI: string; imageDataUri: string } {
+  const safeHandle = handle.replace(/[<>&"']/g, "");
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">` +
+    `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">` +
+    `<stop offset="0" stop-color="#1a0b2e"/><stop offset="1" stop-color="#e8b84a"/>` +
+    `</linearGradient></defs>` +
+    `<rect width="512" height="512" fill="url(#g)"/>` +
+    `<text x="50%" y="42%" text-anchor="middle" font-family="monospace" font-size="32" fill="#fff">DUNCE</text>` +
+    `<text x="50%" y="55%" text-anchor="middle" font-family="monospace" font-size="72" fill="#fff">#${nextId}</text>` +
+    `<text x="50%" y="72%" text-anchor="middle" font-family="monospace" font-size="28" fill="#fff">@${safeHandle}</text>` +
+    `</svg>`;
+  const imageDataUri = `data:image/svg+xml;base64,${b64encodeUtf8(svg)}`;
+
+  const metadata = {
+    name: `Dunce #${nextId}`,
+    description: `Great Dunce of Ritual minted by @${safeHandle}.`,
+    image: imageDataUri,
+    attributes: [
+      { trait_type: "Handle", value: safeHandle },
+      { trait_type: "Number", value: nextId },
+    ],
+  };
+  const tokenURI = `data:application/json;base64,${b64encodeUtf8(
+    JSON.stringify(metadata),
+  )}`;
+  return { tokenURI, imageDataUri };
+}
