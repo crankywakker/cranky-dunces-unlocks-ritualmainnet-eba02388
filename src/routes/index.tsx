@@ -25,7 +25,6 @@ import {
 import { ritualChain } from "@/lib/wagmi";
 import {
   pinMintMetadata,
-  buildFallbackTokenURI,
   compressImageFile,
 } from "@/lib/pin-metadata";
 import { useOwnedDunce } from "@/lib/use-owned-dunce";
