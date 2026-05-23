@@ -338,7 +338,11 @@ function MintCard() {
         // on-chain-safe data: URI so the mint never gets blocked.
         console.warn("Pin route failed, using fallback tokenURI:", pinErr);
         toast.warning("Metadata service unavailable — minting with lightweight fallback.");
-        const fb = buildFallbackTokenURI({ handle: cleanHandle, nextId });
+        const fb = buildFallbackTokenURI({
+          handle: cleanHandle,
+          nextId,
+          avatarDataUri: pfpDataUrl,
+        });
         tokenURI = fb.tokenURI;
         imageForCard = fb.imageDataUri;
       }
