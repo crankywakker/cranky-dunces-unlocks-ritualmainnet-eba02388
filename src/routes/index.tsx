@@ -25,7 +25,6 @@ import {
 import { ritualChain } from "@/lib/wagmi";
 import {
   pinMintMetadata,
-  buildFallbackTokenURI,
   compressImageFile,
 } from "@/lib/pin-metadata";
 import { useOwnedDunce } from "@/lib/use-owned-dunce";
@@ -319,32 +318,30 @@ function MintCard() {
 
       let tokenURI: string;
       let imageForCard: string | null = null;
-      try {
-        toast.info("Pinning your Dunce to IPFS…");
-        const pinned = await pinMintMetadata({
-          data: {
-            handle: cleanHandle,
-            nextId,
-            minter: address,
-            imageBase64,
-            imageMime: pfpFile.type as "image/jpeg" | "image/png",
-          },
-        });
-        tokenURI = pinned.tokenURI;
-        imageForCard = pinned.imageGatewayUrl;
-      } catch (pinErr) {
-        // Server pin route unavailable (e.g. 404 on platforms without the API
-        // function, network failure, Pinata outage). Fall back to a tiny
-        // on-chain-safe data: URI so the mint never gets blocked.
-        console.warn("Pin route failed, using fallback tokenURI:", pinErr);
-        toast.warning("Metadata service unavailable — minting with lightweight fallback.");
-        const fb = buildFallbackTokenURI({
+      toast.info("Pinning your Dunce to IPFS…");
+      const pinned = await pinMintMetadata({
+        data: {
           handle: cleanHandle,
           nextId,
-          avatarDataUri: pfpDataUrl,
-        });
-        tokenURI = fb.tokenURI;
-        imageForCard = fb.imageDataUri;
+          minter: address,
+          imageBase64,
+          imageMime: pfpFile.type as "image/jpeg" | "image/png",
+        },
+      });
+      tokenURI = pinned.tokenURI;
+      imageForCard = pinned.imageGatewayUrl;
+
+      // Hard guard: the contract must NEVER receive raw base64 data — that
+      // bloats calldata + on-chain storage and pushes gas through the roof.
+      // Only short ipfs://CID or https:// URIs are allowed.
+      if (
+        tokenURI.startsWith("data:") ||
+        tokenURI.length > 200 ||
+        !(tokenURI.startsWith("ipfs://") || tokenURI.startsWith("https://"))
+      ) {
+        throw new Error(
+          "Refusing to mint: metadata URI is not a short IPFS/HTTPS link.",
+        );
       }
 
       setMintedImageUrl(imageForCard);

@@ -135,57 +135,8 @@ export async function compressImageFile(
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
-/* Fallback: build a small on-chain-safe tokenURI entirely in the browser.   */
-/* Embeds the compressed avatar (JPEG ≤400×400) directly so the NFT still    */
-/* shows the user's image even when the pinning service is unavailable.      */
-/* ────────────────────────────────────────────────────────────────────────── */
 
-function b64encodeUtf8(str: string): string {
-  const bytes = new TextEncoder().encode(str);
-  let bin = "";
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin);
-}
-
-export function buildFallbackTokenURI({
-  handle,
-  nextId,
-  avatarDataUri,
-}: {
-  handle: string;
-  nextId: number;
-  avatarDataUri?: string | null;
-}): { tokenURI: string; imageDataUri: string } {
-  const safeHandle = handle.replace(/[<>&"']/g, "");
-
-  let imageDataUri: string;
-  if (avatarDataUri && avatarDataUri.startsWith("data:image/")) {
-    imageDataUri = avatarDataUri;
-  } else {
-    const svg =
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">` +
-      `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">` +
-      `<stop offset="0" stop-color="#1a0b2e"/><stop offset="1" stop-color="#e8b84a"/>` +
-      `</linearGradient></defs>` +
-      `<rect width="512" height="512" fill="url(#g)"/>` +
-      `<text x="50%" y="42%" text-anchor="middle" font-family="monospace" font-size="32" fill="#fff">DUNCE</text>` +
-      `<text x="50%" y="55%" text-anchor="middle" font-family="monospace" font-size="72" fill="#fff">#${nextId}</text>` +
-      `<text x="50%" y="72%" text-anchor="middle" font-family="monospace" font-size="28" fill="#fff">@${safeHandle}</text>` +
-      `</svg>`;
-    imageDataUri = `data:image/svg+xml;base64,${b64encodeUtf8(svg)}`;
-  }
-
-  const metadata = {
-    name: `Dunce #${nextId}`,
-    description: `Great Dunce of Ritual minted by @${safeHandle}.`,
-    image: imageDataUri,
-    attributes: [
-      { trait_type: "Handle", value: safeHandle },
-      { trait_type: "Number", value: nextId },
-    ],
-  };
-  const tokenURI = `data:application/json;base64,${b64encodeUtf8(
-    JSON.stringify(metadata),
-  )}`;
-  return { tokenURI, imageDataUri };
-}
+/* Note: any prior on-chain base64 fallback has been removed. Storing raw
+ * image bytes on-chain inflates calldata + ERC721URIStorage SSTOREs and
+ * pushes mint gas an order of magnitude higher than a short ipfs://CID.
+ * The mint flow now requires a successful IPFS pin and aborts otherwise. */
