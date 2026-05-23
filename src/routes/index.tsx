@@ -23,7 +23,7 @@ import {
   MAX_SUPPLY,
 } from "@/lib/contract";
 import { ritualChain } from "@/lib/wagmi";
-import { pinMintMetadata } from "@/lib/pin-metadata";
+import { pinMintMetadata, buildFallbackTokenURI } from "@/lib/pin-metadata";
 import { useOwnedDunce } from "@/lib/use-owned-dunce";
 import { buildShareCard } from "@/lib/build-share-card";
 import { Download, ExternalLink, ImageUp, Twitter, Wallet } from "lucide-react";
@@ -311,18 +311,35 @@ function MintCard() {
     try {
       setPinning(true);
       const nextId = Number(minted) + 1;
-      toast.info("Pinning your Dunce to IPFS…");
       const imageBase64 = dataUrlToBase64(pfpDataUrl);
-      const { tokenURI, imageGatewayUrl } = await pinMintMetadata({
-        data: {
-          handle: cleanHandle,
-          nextId,
-          minter: address,
-          imageBase64,
-          imageMime: pfpFile.type as "image/jpeg" | "image/png",
-        },
-      });
-      setMintedImageUrl(imageGatewayUrl);
+
+      let tokenURI: string;
+      let imageForCard: string | null = null;
+      try {
+        toast.info("Pinning your Dunce to IPFS…");
+        const pinned = await pinMintMetadata({
+          data: {
+            handle: cleanHandle,
+            nextId,
+            minter: address,
+            imageBase64,
+            imageMime: pfpFile.type as "image/jpeg" | "image/png",
+          },
+        });
+        tokenURI = pinned.tokenURI;
+        imageForCard = pinned.imageGatewayUrl;
+      } catch (pinErr) {
+        // Server pin route unavailable (e.g. 404 on platforms without the API
+        // function, network failure, Pinata outage). Fall back to a tiny
+        // on-chain-safe data: URI so the mint never gets blocked.
+        console.warn("Pin route failed, using fallback tokenURI:", pinErr);
+        toast.warning("Metadata service unavailable — minting with lightweight fallback.");
+        const fb = buildFallbackTokenURI({ handle: cleanHandle, nextId });
+        tokenURI = fb.tokenURI;
+        imageForCard = fb.imageDataUri;
+      }
+
+      setMintedImageUrl(imageForCard);
       setPinning(false);
 
       toast.info("Confirm the mint in your wallet…");
