@@ -135,17 +135,6 @@ export async function compressImageFile(
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
-/* Fallback: build a small on-chain-safe tokenURI entirely in the browser.   */
-/* Embeds the compressed avatar (JPEG ≤400×400) directly so the NFT still    */
-/* shows the user's image even when the pinning service is unavailable.      */
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function b64encodeUtf8(str: string): string {
-  const bytes = new TextEncoder().encode(str);
-  let bin = "";
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin);
-}
 
 /* Note: any prior on-chain base64 fallback has been removed. Storing raw
  * image bytes on-chain inflates calldata + ERC721URIStorage SSTOREs and
