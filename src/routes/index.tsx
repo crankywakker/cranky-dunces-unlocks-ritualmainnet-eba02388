@@ -23,7 +23,11 @@ import {
   MAX_SUPPLY,
 } from "@/lib/contract";
 import { ritualChain } from "@/lib/wagmi";
-import { pinMintMetadata, buildFallbackTokenURI } from "@/lib/pin-metadata";
+import {
+  pinMintMetadata,
+  buildFallbackTokenURI,
+  compressImageFile,
+} from "@/lib/pin-metadata";
 import { useOwnedDunce } from "@/lib/use-owned-dunce";
 import { buildShareCard } from "@/lib/build-share-card";
 import { Download, ExternalLink, ImageUp, Twitter, Wallet } from "lucide-react";
@@ -262,31 +266,31 @@ function MintCard() {
       return;
     }
 
-    // Read the bytes NOW, while we're still inside the user gesture.
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result !== "string") {
-        setPfpError("Could not read this image. Please try another file.");
+    // Compress the image IMMEDIATELY while we still have access to the File
+    // handle (mobile browsers revoke it later). The compressed JPEG (≤400×400
+    // @ q0.7) is tiny enough to keep the Vercel function well under its 504
+    // timeout window, and small enough to embed as a fallback data: URI.
+    (async () => {
+      try {
+        const compressed = await compressImageFile(file, {
+          maxWidth: 400,
+          maxHeight: 400,
+          quality: 0.7,
+        });
+        setPfpDataUrl(compressed.dataUrl);
+        setPfpFile({
+          name: file.name.replace(/\.(png|jpe?g)$/i, "") + ".jpg",
+          type: "image/jpeg",
+          size: compressed.size,
+        });
+      } catch {
+        setPfpError(
+          "Could not read this image. On mobile, try re-selecting it from your photo library.",
+        );
         setPfpFile(null);
         setPfpDataUrl(null);
-        return;
       }
-      setPfpDataUrl(result);
-      setPfpFile({
-        name: file.name,
-        type: file.type as "image/jpeg" | "image/png",
-        size: file.size,
-      });
-    };
-    reader.onerror = () => {
-      setPfpError(
-        "Could not read this image. On mobile, try re-selecting it from your photo library.",
-      );
-      setPfpFile(null);
-      setPfpDataUrl(null);
-    };
-    reader.readAsDataURL(file);
+    })();
   }
 
   function dataUrlToBase64(dataUrl: string): string {
@@ -334,7 +338,11 @@ function MintCard() {
         // on-chain-safe data: URI so the mint never gets blocked.
         console.warn("Pin route failed, using fallback tokenURI:", pinErr);
         toast.warning("Metadata service unavailable — minting with lightweight fallback.");
-        const fb = buildFallbackTokenURI({ handle: cleanHandle, nextId });
+        const fb = buildFallbackTokenURI({
+          handle: cleanHandle,
+          nextId,
+          avatarDataUri: pfpDataUrl,
+        });
         tokenURI = fb.tokenURI;
         imageForCard = fb.imageDataUri;
       }
