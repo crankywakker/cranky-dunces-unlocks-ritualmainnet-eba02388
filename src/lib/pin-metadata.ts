@@ -16,41 +16,51 @@ const PinInput = z.object({
 
 type PinInputData = z.infer<typeof PinInput>;
 
-function dataUri(mime: string, base64: string) {
-  return base64.startsWith("data:") ? base64 : `data:${mime};base64,${base64}`;
-}
+export type PinResult = {
+  tokenURI: string;
+  imageGatewayUrl: string;
+  metadataGatewayUrl: string;
+};
 
-export async function pinMintMetadata({ data }: { data: PinInputData }) {
+/**
+ * Sends the PFP + Twitter handle to our serverless backend, which pins them
+ * to IPFS via Pinata and returns a short `ipfs://<jsonCid>` URI.
+ *
+ * Returning a short URI (rather than an inlined data: URI) keeps the
+ * `mintDunce()` calldata small and avoids the "oversized data" revert on the
+ * Ritual RPC.
+ */
+export async function pinMintMetadata({
+  data,
+}: {
+  data: PinInputData;
+}): Promise<PinResult> {
   const parsed = PinInput.parse(data);
   const imageBytes = Math.ceil((parsed.imageBase64.length * 3) / 4);
-
   if (imageBytes > MAX_IMAGE_BYTES) {
     throw new Error("Image exceeds 5MB limit.");
   }
 
-  const imageGatewayUrl = dataUri(parsed.imageMime, parsed.imageBase64);
-  const metadata = {
-    name: `Dunce #${parsed.nextId}`,
-    description:
-      "One of 666 Great Dunce's of Ritual — a free mint to unlock Ritual Mainnet. Designed by crankywakker.",
-    image: imageGatewayUrl,
-    external_url: "https://ritualfoundation.org",
-    attributes: [
-      { trait_type: "Creator", value: "crankywakker" },
-      { trait_type: "Edition", value: parsed.nextId, max_value: 666 },
-      { trait_type: "Twitter Handle", value: parsed.handle },
-      { trait_type: "Minter", value: parsed.minter },
-    ],
-  };
+  const res = await fetch("/api/pin-metadata", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(parsed),
+  });
 
-  const tokenURI = dataUri(
-    "application/json",
-    btoa(unescape(encodeURIComponent(JSON.stringify(metadata)))),
-  );
+  if (!res.ok) {
+    let msg = `Metadata pinning failed (${res.status})`;
+    try {
+      const j = (await res.json()) as { error?: string };
+      if (j?.error) msg = j.error;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg);
+  }
 
-  return {
-    tokenURI,
-    imageGatewayUrl,
-    metadataGatewayUrl: tokenURI,
-  };
+  const json = (await res.json()) as PinResult;
+  if (!json?.tokenURI?.startsWith("ipfs://")) {
+    throw new Error("Backend returned an invalid tokenURI.");
+  }
+  return json;
 }
