@@ -525,9 +525,9 @@ function MintCard() {
                 : soldOut
                   ? "Sold out"
                   : pinning
-                    ? "Pinning to IPFS…"
+                    ? pinStatus || "Pinning to IPFS…"
                     : writing
-                      ? "Confirm in wallet…"
+                      ? "Waiting for wallet confirmation…"
                       : confirming
                         ? "Sealing on-chain…"
                         : "Mint your Dunce — Free"}
