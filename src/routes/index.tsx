@@ -177,6 +177,7 @@ function MintCard() {
 
   const [handle, setHandle] = useState("");
   const [pinning, setPinning] = useState(false);
+  const [pinStatus, setPinStatus] = useState<string>("");
   const [mintedTokenId, setMintedTokenId] = useState<bigint | null>(null);
   const [mintedImageUrl, setMintedImageUrl] = useState<string | null>(null);
 
