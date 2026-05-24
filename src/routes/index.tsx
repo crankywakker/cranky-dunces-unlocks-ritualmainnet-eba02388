@@ -177,6 +177,7 @@ function MintCard() {
 
   const [handle, setHandle] = useState("");
   const [pinning, setPinning] = useState(false);
+  const [pinStatus, setPinStatus] = useState<string>("");
   const [mintedTokenId, setMintedTokenId] = useState<bigint | null>(null);
   const [mintedImageUrl, setMintedImageUrl] = useState<string | null>(null);
 
@@ -313,12 +314,13 @@ function MintCard() {
     if (!address || !pfpFile || !pfpDataUrl) return;
     try {
       setPinning(true);
+      setPinStatus("Preparing image…");
       const nextId = Number(minted) + 1;
       const imageBase64 = dataUrlToBase64(pfpDataUrl);
 
-      let tokenURI: string;
-      let imageForCard: string | null = null;
-      toast.info("Pinning your Dunce to IPFS…");
+      console.log(`[mint] Starting flow handle=@${cleanHandle} nextId=${nextId}`);
+      toast.info("Uploading image to IPFS…");
+
       const pinned = await pinMintMetadata({
         data: {
           handle: cleanHandle,
@@ -327,13 +329,29 @@ function MintCard() {
           imageBase64,
           imageMime: pfpFile.type as "image/jpeg" | "image/png",
         },
+        timeoutMs: 60_000,
+        retries: 2,
+        onProgress: (phase, detail) => {
+          const label =
+            detail ??
+            (phase === "uploading"
+              ? "Uploading image…"
+              : phase === "pinning"
+                ? "Pinning metadata…"
+                : phase === "retrying"
+                  ? "Retrying upload…"
+                  : phase === "done"
+                    ? "Pinned ✓"
+                    : "Preparing…");
+          setPinStatus(label);
+        },
       });
-      tokenURI = pinned.tokenURI;
-      imageForCard = pinned.imageGatewayUrl;
 
-      // Hard guard: the contract must NEVER receive raw base64 data — that
-      // bloats calldata + on-chain storage and pushes gas through the roof.
-      // Only short ipfs://CID or https:// URIs are allowed.
+      const tokenURI = pinned.tokenURI;
+      const imageForCard = pinned.imageGatewayUrl;
+      console.log(`[mint] Pinned tokenURI=${tokenURI}`);
+
+      // Hard guard: contract must NEVER receive raw base64 — only short IPFS/HTTPS.
       if (
         tokenURI.startsWith("data:") ||
         tokenURI.length > 200 ||
@@ -346,8 +364,10 @@ function MintCard() {
 
       setMintedImageUrl(imageForCard);
       setPinning(false);
+      setPinStatus("");
 
-      toast.info("Confirm the mint in your wallet…");
+      toast.info("Waiting for wallet confirmation…");
+      console.log(`[mint] Submitting mintDunce(${tokenURI})`);
       await writeContractAsync({
         address: DUNCES_ADDRESS,
         abi: DUNCES_ABI,
@@ -355,14 +375,28 @@ function MintCard() {
         args: [tokenURI],
         chainId: ritualChain.id,
       });
+      console.log(`[mint] Tx submitted`);
     } catch (e) {
       setPinning(false);
+      setPinStatus("");
       const msg = e instanceof Error ? e.message : String(e);
-      // Surface contract custom errors in plain language.
+      console.error("[mint] Failed:", msg);
+      // Surface common errors in plain language.
       if (msg.includes("AlreadyMinted")) toast.error("Limit 1 mint per wallet.");
       else if (msg.includes("SoldOut")) toast.error("Sold out — all 666 are gone.");
-      else if (msg.includes("User rejected")) toast.error("Mint cancelled.");
-      else toast.error(msg.slice(0, 160));
+      else if (/User rejected|User denied|rejected the request/i.test(msg))
+        toast.error("Mint cancelled in wallet.");
+      else if (/gas|insufficient funds/i.test(msg))
+        toast.error("Gas estimation failed — check your wallet balance.");
+      else if (/timed out|timeout/i.test(msg))
+        toast.error("Upload timed out. Please try again.");
+      else if (/404/.test(msg))
+        toast.error(
+          "Pinning service not found. Verify /api/pin-metadata is deployed.",
+        );
+      else if (/PINATA_JWT|misconfigured/i.test(msg))
+        toast.error("Server misconfigured — PINATA_JWT missing on Vercel.");
+      else toast.error(msg.slice(0, 200));
     }
   }
 
@@ -491,9 +525,9 @@ function MintCard() {
                 : soldOut
                   ? "Sold out"
                   : pinning
-                    ? "Pinning to IPFS…"
+                    ? pinStatus || "Pinning to IPFS…"
                     : writing
-                      ? "Confirm in wallet…"
+                      ? "Waiting for wallet confirmation…"
                       : confirming
                         ? "Sealing on-chain…"
                         : "Mint your Dunce — Free"}

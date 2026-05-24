@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const DEFAULT_PIN_TIMEOUT_MS = 20_000;
+const DEFAULT_PIN_TIMEOUT_MS = 60_000;
+const DEFAULT_RETRIES = 2; // total attempts = 1 + retries
 
 const PinInput = z.object({
   handle: z
@@ -23,20 +24,35 @@ export type PinResult = {
   metadataGatewayUrl: string;
 };
 
+export type PinPhase =
+  | "compressing"
+  | "uploading"
+  | "pinning"
+  | "retrying"
+  | "done";
+
+export type PinProgress = (phase: PinPhase, detail?: string) => void;
+
 /**
- * Sends the PFP + Twitter handle to our serverless backend, which pins them
- * to IPFS via Pinata and returns a short `ipfs://<jsonCid>` URI.
+ * Sends the PFP + Twitter handle to our Vercel serverless backend, which
+ * pins them to IPFS via Pinata and returns a short `ipfs://<jsonCid>` URI.
  *
- * Uses an AbortController so a hanging Vercel function (504) can't lock the
- * mint flow forever — the caller can then fall back to a client-side
- * data: URI.
+ * Implements:
+ *  - 60s per-attempt AbortController timeout
+ *  - exponential-backoff retry on network failures + 5xx/504 responses
+ *  - phased progress callback for UI loading states
+ *  - structured console logging
  */
 export async function pinMintMetadata({
   data,
   timeoutMs = DEFAULT_PIN_TIMEOUT_MS,
+  retries = DEFAULT_RETRIES,
+  onProgress,
 }: {
   data: PinInputData;
   timeoutMs?: number;
+  retries?: number;
+  onProgress?: PinProgress;
 }): Promise<PinResult> {
   const parsed = PinInput.parse(data);
   const imageBytes = Math.ceil((parsed.imageBase64.length * 3) / 4);
@@ -44,48 +60,134 @@ export async function pinMintMetadata({
     throw new Error("Image exceeds 5MB limit.");
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const totalAttempts = retries + 1;
+  let lastErr: Error | null = null;
 
-  let res: Response;
-  try {
-    res = await fetch("/api/pin-metadata", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(parsed),
-      signal: controller.signal,
-    });
-  } catch (e) {
-    clearTimeout(timeoutId);
-    if (e instanceof Error && e.name === "AbortError") {
-      throw new Error("Metadata pinning timed out.");
-    }
-    throw e;
-  }
-  clearTimeout(timeoutId);
+  for (let attempt = 1; attempt <= totalAttempts; attempt++) {
+    onProgress?.(
+      attempt === 1 ? "uploading" : "retrying",
+      attempt === 1
+        ? "Uploading image to IPFS…"
+        : `Retrying upload (attempt ${attempt}/${totalAttempts})…`,
+    );
+    console.log(
+      `[pin-metadata] Upload start attempt=${attempt}/${totalAttempts} bytes=${imageBytes}`,
+    );
 
-  if (!res.ok) {
-    let msg = `Metadata pinning failed (${res.status})`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
-      const j = (await res.json()) as { error?: string };
-      if (j?.error) msg = j.error;
-    } catch {
-      /* ignore */
-    }
-    throw new Error(msg);
-  }
+      const res = await fetch("/api/pin-metadata", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
-  const json = (await res.json()) as PinResult;
-  if (!json?.tokenURI?.startsWith("ipfs://")) {
-    throw new Error("Backend returned an invalid tokenURI.");
+      // 404 means the route isn't deployed — no point retrying.
+      if (res.status === 404) {
+        throw new Error(
+          "Pinning endpoint not found (404). The /api/pin-metadata route is missing on this deployment.",
+        );
+      }
+
+      if (!res.ok) {
+        let msg = `Metadata pinning failed (${res.status})`;
+        try {
+          const j = (await res.json()) as { error?: string };
+          if (j?.error) msg = j.error;
+        } catch {
+          /* ignore */
+        }
+        // Retry on 5xx / 504 / 429.
+        if (
+          (res.status >= 500 || res.status === 429) &&
+          attempt < totalAttempts
+        ) {
+          lastErr = new Error(msg);
+          console.warn(
+            `[pin-metadata] ${msg} — retrying in ${backoffMs(attempt)}ms`,
+          );
+          await sleep(backoffMs(attempt));
+          continue;
+        }
+        throw new Error(msg);
+      }
+
+      onProgress?.("pinning", "Pinning metadata to IPFS…");
+      const json = (await res.json()) as PinResult;
+      if (!json?.tokenURI?.startsWith("ipfs://")) {
+        throw new Error("Backend returned an invalid tokenURI.");
+      }
+      console.log(`[pin-metadata] Success tokenURI=${json.tokenURI}`);
+      onProgress?.("done");
+      return json;
+    } catch (e) {
+      clearTimeout(timeoutId);
+      const err =
+        e instanceof Error && e.name === "AbortError"
+          ? new Error("Metadata pinning timed out.")
+          : e instanceof Error
+            ? e
+            : new Error(String(e));
+
+      // Don't retry on 404 / validation / abort-from-non-timeout.
+      const retriable =
+        attempt < totalAttempts &&
+        !/404|Invalid|exceeds|misconfigured|PINATA_JWT/i.test(err.message);
+
+      if (retriable) {
+        lastErr = err;
+        console.warn(
+          `[pin-metadata] ${err.message} — retrying in ${backoffMs(attempt)}ms`,
+        );
+        await sleep(backoffMs(attempt));
+        continue;
+      }
+      throw err;
+    }
   }
-  return json;
+  throw lastErr ?? new Error("Metadata pinning failed.");
+}
+
+function backoffMs(attempt: number): number {
+  // 1s, 3s, 9s…
+  return 1000 * Math.pow(3, attempt - 1);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Optional: probe the API route at runtime so we can fail fast with a useful
+ * message if /api/pin-metadata isn't deployed or PINATA_JWT isn't set on the
+ * hosting environment.
+ */
+export async function pinHealthcheck(): Promise<{
+  ok: boolean;
+  hasPinataJwt?: boolean;
+  error?: string;
+}> {
+  try {
+    const res = await fetch("/api/pin-metadata", { method: "GET" });
+    if (res.status === 404) {
+      return { ok: false, error: "Pinning route /api/pin-metadata not found." };
+    }
+    if (!res.ok) return { ok: false, error: `Healthcheck ${res.status}` };
+    const j = (await res.json()) as { ok?: boolean; hasPinataJwt?: boolean };
+    return { ok: !!j?.ok, hasPinataJwt: !!j?.hasPinataJwt };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /* Client-side image compression: downscale to ≤400×400, re-encode as JPEG  */
-/* at quality 0.7. Tiny enough for either the API payload or a fallback     */
-/* data: URI embedded in the tokenURI.                                      */
+/* at quality 0.7. Keeps API payloads tiny and well under serverless body    */
+/* size + timeout limits.                                                    */
 /* ────────────────────────────────────────────────────────────────────────── */
 
 export async function compressImageFile(
@@ -133,10 +235,3 @@ export async function compressImageFile(
   const size = Math.ceil(((dataUrl.split(",")[1] ?? "").length * 3) / 4);
   return { dataUrl, mime: "image/jpeg", size };
 }
-
-/* ────────────────────────────────────────────────────────────────────────── */
-
-/* Note: any prior on-chain base64 fallback has been removed. Storing raw
- * image bytes on-chain inflates calldata + ERC721URIStorage SSTOREs and
- * pushes mint gas an order of magnitude higher than a short ipfs://CID.
- * The mint flow now requires a successful IPFS pin and aborts otherwise. */
