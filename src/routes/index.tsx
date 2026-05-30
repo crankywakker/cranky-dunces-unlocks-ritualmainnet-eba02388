@@ -596,9 +596,9 @@ function PostMint({
   const explorerUrl = txHash
     ? `${ritualChain.blockExplorers.default.url}/tx/${txHash}`
     : null;
-  const shareUrl = "https://cranky-dunces-unlocks-ritualmainnet.lovable.app/";
-  const shareText = `I just minted Dunce #${tokenId} of 666 on @ritualnet designed by @jumplifey9. Mint yours for free: ${shareUrl}`;
-  const xIntent = `https://x.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
+  const shareUrl = "https://cranky-dunces-unlocks-ritualmainnet.vercel.app/";
+  const shareText = `I just minted my Dunce Card to unlock Ritual Mainnet! Mint yours here: ${shareUrl}`;
+  const xIntent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
 
   const [cardUrl, setCardUrl] = useState<string | null>(null);
   const [cardBlob, setCardBlob] = useState<Blob | null>(null);
